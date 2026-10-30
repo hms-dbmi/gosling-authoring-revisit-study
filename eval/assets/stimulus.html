@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stimulus</title>
+<link rel="stylesheet" href="https://unpkg.com/higlass@1.13.3/dist/hglib.css">
+<script type="importmap">
+{"imports":{
+  "react":"https://esm.sh/react@18",
+  "react-dom":"https://esm.sh/react-dom@18",
+  "pixi":"https://esm.sh/pixi.js@6",
+  "higlass":"https://esm.sh/higlass@1.13.3?external=react,react-dom,pixi",
+  "gosling.js":"https://esm.sh/gosling.js@0.17.0?external=react,react-dom,pixi,higlass"
+}}
+</script>
+<style>
+  :root {
+    --ink: #1a1a1e; --muted: #63636e; --line: #e3e3e9;
+    --bg: #ffffff; --panel: #f7f7fa; --accent: #3b5bdb; --warn: #b8730c; --bad: #b02a37;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { padding: 14px 16px 24px; max-width: 1240px; }
+
+  /* --- task --- */
+  .task { border: 1px solid var(--line); border-left: 3px solid var(--accent);
+          border-radius: 5px; padding: 10px 13px; background: var(--panel); }
+  .task .eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: .07em;
+                   text-transform: uppercase; color: var(--accent); }
+  .task .query { margin-top: 4px; font-size: 15.5px; line-height: 1.45; }
+  .task .given { margin-top: 7px; font-size: 11.5px; color: var(--muted); font-style: italic; }
+
+  /* --- section headers --- */
+  h2.sec { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+           color: var(--muted); margin: 20px 0 7px; padding-bottom: 5px;
+           border-bottom: 1px solid var(--line); }
+
+  /* --- visualization --- */
+  #vis-shell { border: 1px solid var(--line); border-radius: 5px; padding: 6px;
+               min-height: 260px; overflow: auto; position: relative; }
+  #vis { }
+  .status { padding: 22px 16px; text-align: center; color: var(--muted); font-size: 13px; }
+  .status.err { color: var(--bad); text-align: left; }
+  .status.err b { display: block; font-size: 14px; margin-bottom: 4px; }
+  .status.err pre { white-space: pre-wrap; font-size: 11px; color: var(--muted);
+                    margin: 8px 0 0; max-height: 140px; overflow: auto; }
+  .spinner { display: inline-block; width: 15px; height: 15px; vertical-align: -2px;
+             margin-right: 7px; border: 2px solid var(--line); border-top-color: var(--accent);
+             border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hint { font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+
+  /* --- data preview --- */
+  details.ds { border: 1px solid var(--line); border-radius: 5px; margin-bottom: 7px;
+               background: var(--panel); }
+  details.ds > summary { cursor: pointer; padding: 7px 11px; font-size: 12.5px;
+                         font-weight: 600; list-style: none; display: flex; gap: 8px;
+                         align-items: baseline; flex-wrap: wrap; }
+  details.ds > summary::-webkit-details-marker { display: none; }
+  details.ds > summary::before { content: "\25B8"; color: var(--muted); font-size: 10px; }
+  details.ds[open] > summary::before { content: "\25BE"; }
+  .badge { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+           background: #e7ebfb; color: var(--accent); border-radius: 3px; padding: 1px 5px; }
+  .dsfile { font-weight: 400; color: var(--muted); font-size: 11.5px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            overflow-wrap: anywhere; }
+  .dsbody { padding: 0 11px 11px; background: var(--bg); border-top: 1px solid var(--line);
+            border-radius: 0 0 5px 5px; }
+  .tblscroll { overflow-x: auto; margin-top: 9px; }
+  table { border-collapse: collapse; font-size: 11.5px;
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  th, td { border: 1px solid var(--line); padding: 3px 7px; text-align: left;
+           white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+  th { background: var(--panel); }
+  th .cname { display: block; font-family: inherit; }
+  th .ctype { display: block; font-weight: 400; font-size: 10px; color: var(--muted);
+              text-transform: lowercase; }
+  .fields { list-style: none; padding: 0; margin: 9px 0 0; display: flex;
+            flex-wrap: wrap; gap: 5px; }
+  .fields li { border: 1px solid var(--line); border-radius: 3px; padding: 2px 7px;
+               font-size: 11.5px; background: var(--panel); }
+  .fields code { font-family: ui-monospace, Menlo, monospace; font-weight: 600; }
+  .fields .role { color: var(--muted); font-size: 10.5px; }
+  .note { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+  .note.mono { font-family: ui-monospace, Menlo, monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="query" hidden></div>
+  <h2 class="sec">Visualization</h2>
+  <div id="vis-shell">
+    <div class="status" id="vis-status"><span class="spinner"></span>Loading visualization&hellip;</div>
+    <div id="vis"></div>
+  </div>
+  <div class="hint">This is a live, interactive view. Try panning (drag) and zooming (scroll or
+    pinch) where the visualization supports it, and hover for tooltips.</div>
+
+  <h2 class="sec">Input data</h2>
+  <div id="data"></div>
+</div>
+
+<script src="../../revisitUtilities/revisit-communicate.js"></script>
+<script type="module">
+import { embed } from 'gosling.js';
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+let reported = false;
+function report(status, detail) {
+  if (reported) return;
+  reported = true;
+  const payload = { render_status: detail ? `${status}: ${detail}` : status };
+  try { window.Revisit?.postAnswers?.(payload); } catch (_) { /* standalone preview */ }
+}
+
+// ---------------------------------------------------------------- data preview
+
+function fileName(url) {
+  if (url.startsWith('blob:')) return 'a local file, not available for preview';
+  try {
+    const u = new URL(url);
+    const d = u.searchParams.get('d');
+    if (d) return `${d} (${u.host})`;
+    return u.pathname.split('/').filter(Boolean).pop() || u.host;
+  } catch (_) { return url; }
+}
+
+function renderRows(p) {
+  const head = p.columns.map((c, i) =>
+    `<th><span class="cname">${esc(c)}</span><span class="ctype">${esc(p.types[i] || '')}</span></th>`
+  ).join('');
+  const body = p.rows.map((r) =>
+    '<tr>' + p.columns.map((_, i) => `<td>${esc(r[i] ?? '')}</td>`).join('') + '</tr>'
+  ).join('');
+  const more = p.truncated
+    ? `<div class="note">First ${p.rows.length} rows shown; the file continues.</div>` : '';
+  return `<div class="tblscroll"><table><thead><tr>${head}</tr></thead>
+          <tbody>${body}</tbody></table></div>${more}`;
+}
+
+function renderSchema(p) {
+  const fields = (p.fields || []).length
+    ? '<ul class="fields">' + p.fields.map((f) =>
+        `<li><code>${esc(f.name)}</code> <span class="role">${esc(f.role)}${
+          f.type ? ' · ' + esc(f.type) : ''}</span></li>`).join('') + '</ul>'
+    : '<div class="note">No field names are declared for this source.</div>';
+  const notes = (p.notes || []).length
+    ? `<div class="note mono">${p.notes.map(esc).join(' · ')}</div>` : '';
+  const why = '<div class="note">Row-level preview is not available for this format: it is served '
+            + 'as pre-aggregated tiles or read by indexed range requests, not as a flat table. '
+            + 'The fields it exposes are listed above.</div>';
+  return `${fields}${notes}<div class="note">${esc(p.explanation || '')}</div>${why}`;
+}
+
+function renderData(previews) {
+  const host = $('data');
+  const entries = Object.entries(previews || {});
+  if (!entries.length) {
+    host.innerHTML = '<div class="note">This visualization does not read an external dataset.</div>';
+    return;
+  }
+  host.innerHTML = entries.map(([url, p], i) => {
+    const unavailable = p.unavailable;
+    const badge = unavailable ? 'unavailable' : (p.dataType || 'data');
+    const body = unavailable
+      ? `<div class="note">${esc(p.explanation || 'This dataset is not reachable for preview.')}</div>`
+      : (p.kind === 'rows' ? renderRows(p) : renderSchema(p));
+    return `<details class="ds"${i === 0 ? ' open' : ''}>
+      <summary><span class="badge">${esc(badge)}</span>
+               <span class="dsfile">${esc(fileName(url))}</span></summary>
+      <div class="dsbody">${body}</div></details>`;
+  }).join('');
+}
+
+// ------------------------------------------------------------------ rendering
+
+// Gosling renders through HiGlass/PixiJS, which hard-requires WebGL. Without it every single
+// item would fail identically, and a rater with no WebGL would score the whole set 1. That is a
+// machine problem, not an output problem, so we detect it up front and say so.
+function hasWebGL() {
+  try {
+    const c = document.createElement('canvas');
+    return Boolean(c.getContext('webgl') || c.getContext('experimental-webgl'));
+  } catch (_) { return false; }
+}
+
+async function renderVis(spec) {
+  const shell = $('vis-shell');
+  const status = $('vis-status');
+  if (!hasWebGL()) {
+    status.className = 'status err';
+    status.innerHTML = '<b>Interface problem: this browser cannot draw the visualization.</b>'
+      + 'Hardware-accelerated graphics (WebGL) is unavailable, which every visualization in '
+      + 'this study needs. Please choose <i>"Cannot evaluate: technical problems with the '
+      + 'interface"</i> and contact us. Switching browser or enabling hardware '
+      + 'acceleration usually fixes it. Do not rate this as 1.';
+    report('no_webgl');
+    return;
+  }
+  if (!spec || typeof spec !== 'object') {
+    status.className = 'status err';
+    status.innerHTML = '<b>No visualization was produced.</b>'
+      + 'The system did not return a specification for this request.';
+    report('no_spec');
+    return;
+  }
+  // Surface async failures thrown from inside the rendering library.
+  const onErr = (e) => {
+    if (status.isConnected && status.className.indexOf('err') === -1) {
+      status.className = 'status err';
+      status.innerHTML = '<b>This visualization failed to render.</b>'
+        + 'The specification produced an error instead of a picture.'
+        + `<pre>${esc((e.reason && e.reason.message) || e.message || e.reason || e)}</pre>`;
+      report('render_error', (e.reason && e.reason.message) || e.message || '');
+    }
+  };
+  window.addEventListener('unhandledrejection', onErr);
+  window.addEventListener('error', onErr);
+
+  try {
+    await embed($('vis'), spec, { padding: 10 });
+    status.remove();
+    // A spec can "succeed" yet paint nothing; give it a beat, then check.
+    setTimeout(() => {
+      const painted = $('vis').querySelector('canvas, svg');
+      report(painted ? 'rendered' : 'rendered_empty');
+      shell.style.minHeight = 'auto';
+    }, 2500);
+  } catch (err) {
+    status.className = 'status err';
+    status.innerHTML = '<b>This visualization failed to render.</b>'
+      + 'The specification produced an error instead of a picture.'
+      + `<pre>${esc(err && err.message ? err.message : err)}</pre>`;
+    report('render_error', err && err.message ? err.message : '');
+  }
+}
+
+// ---------------------------------------------------------------------- boot
+
+async function boot(itemPath) {
+  let item;
+  try {
+    const res = await fetch(itemPath);
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    item = await res.json();
+  } catch (err) {
+    $('query').textContent = 'Could not load this item.';
+    $('vis-status').className = 'status err';
+    $('vis-status').innerHTML = '<b>Interface problem.</b>Item data could not be loaded '
+      + `(${esc(err.message)}). Please use the "cannot evaluate" option.`;
+    report('item_load_failed', err.message);
+    return;
+  }
+  $('query').textContent = item.query || '(no request text)';
+  renderData(item.dataPreviews);
+  await renderVis(item.spec);
+}
+
+// reVISit hands us { itemId: <record id> } via the component's `parameters`. The id is resolved
+// against *this page's* URL rather than the site root: the study can be deployed under a base
+// path, and a bare relative path would resolve against the assets/ directory and land on the
+// single-page-app fallback, which returns index.html and fails to parse as JSON.
+function itemUrl(itemId) {
+  return new URL(`../items/${itemId}.json`, location.href).href;
+}
+
+// An explicit ?item= wins so the page can be previewed standalone even when
+// revisit-communicate.js is reachable — otherwise the callback never fires and the page waits
+// forever.
+const params = new URLSearchParams(location.search);
+const urlItem = params.get('item') || (params.get('itemId') ? itemUrl(params.get('itemId')) : null);
+if (urlItem) {
+  boot(urlItem);
+} else if (window.Revisit && window.Revisit.onDataReceive) {
+  let started = false;
+  window.Revisit.onDataReceive((data) => {
+    started = true;
+    boot(data.itemId != null ? itemUrl(data.itemId) : data.item);
+  });
+  // Guard against the parent message never arriving: fail loudly rather than spinning.
+  setTimeout(() => {
+    if (started) return;
+    $('vis-status').className = 'status err';
+    $('vis-status').innerHTML = '<b>Interface problem.</b>This item never arrived from the '
+      + 'study tool. Please reload the page once; if it happens again, choose <i>"Cannot evaluate: '
+      + 'technical problems with the interface"</i>.';
+    report('no_parameters');
+  }, 20000);
+} else {
+  $('query').textContent = 'No item specified.';
+  $('vis-status').className = 'status err';
+  $('vis-status').innerHTML = '<b>Interface problem.</b>This page was opened outside the study '
+    + 'tool and without an <code>?item=</code> parameter.';
+  report('no_host');
+}
+</script>
+</body>
+</html>

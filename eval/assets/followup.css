@@ -1,0 +1,6 @@
+/* reVISit right-aligns matrix row labels with inline styles; left-align them in the follow-up
+   grid. The attribute selector targets those row-label boxes, hence !important. */
+#failure_dimensions [style*="justify-content: end"] {
+  justify-content: flex-start !important;
+  text-align: left !important;
+}

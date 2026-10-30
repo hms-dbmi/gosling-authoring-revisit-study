@@ -1,0 +1,79 @@
+# Builds reVISit (pinned) around the study in this repo and publishes it to GitHub Pages.
+# Storage is browser-only until the repo variables VITE_STORAGE_ENGINE=supabase,
+# VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.
+name: Deploy study
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  REVISIT_SHA: 8969435bcef7117b96f204b3442ed601b5573b10
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: study
+
+      - uses: actions/checkout@v4
+        with:
+          repository: revisit-studies/study
+          ref: ${{ env.REVISIT_SHA }}
+          path: app
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: yarn
+          cache-dependency-path: app/yarn.lock
+
+      - name: Add the study and list only it
+        working-directory: app
+        run: |
+          cp -R ../study/eval public/
+          cat > public/global.json <<'EOF'
+          {
+            "$schema": "https://raw.githubusercontent.com/revisit-studies/study/v2.4.4/src/parser/GlobalConfigSchema.json",
+            "configsList": ["eval"],
+            "configs": { "eval": { "path": "eval/config.json" } }
+          }
+          EOF
+
+      - name: Build
+        working-directory: app
+        env:
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          VITE_STORAGE_ENGINE: ${{ vars.VITE_STORAGE_ENGINE || 'localStorage' }}
+          VITE_REPO_URL: ""
+          SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          # Only override .env when set, so the build never gets an empty Supabase URL.
+          if [ -n "$SUPABASE_URL" ]; then
+            export VITE_SUPABASE_URL="$SUPABASE_URL" VITE_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+          fi
+          yarn install --immutable
+          yarn build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/dist
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
