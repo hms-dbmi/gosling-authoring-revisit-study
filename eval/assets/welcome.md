@@ -11,6 +11,9 @@ Please open this experiment in **Chrome or Firefox on a desktop or laptop**. The
 need hardware-accelerated graphics and a wide screen, and they will not work on a phone or
 tablet. **You cannot navigate back to previous pages.**
 
+**Please do not use Safari.** In Safari, visualizations can flicker and then stay empty. If you
+see many empty visualizations, please switch to Chrome or Firefox.
+
 Please respond to this study only if you:
 
 * are a fluent speaker of English

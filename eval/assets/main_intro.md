@@ -12,6 +12,7 @@ Reminders:
 * The data can take a little while to load; the **Next** button unlocks after
   30 seconds.
 * "Cannot evaluate" is for our tooling failing, not for a visualization that renders badly.
+* Many empty visualizations? You are probably using Safari; please switch to Chrome or Firefox.
 
 There are no right answers and nothing is being tested about you. Take a break whenever you
 like. Just leave the page open.
